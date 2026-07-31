@@ -80,37 +80,41 @@ Write-Host "---------------------------------------------------" -ForegroundColo
 # ===================================================
 $ModelLower  = $Model.ToLower()
 
-# BƯỚC 1: Dán thẳng đường link file .EXE tải từ trang Ricoh vào đây
-$DriverUrl   = "https://drive.google.com/file/d/188P92YOuFvCvA_Rll54-TVDXGG-HWr6S/view?usp=sharing" 
+# ĐÃ SỬA: Chuyển đổi thành Link Direct tải thẳng file .ZIP từ Google Drive của bạn
+$DriverUrl   = "https://google.com" 
 $DriverName  = "RICOH PCL6 UniversalDriver V4.35"
 $WorkDir     = "C:\Temp\RicohInstall_$ModelLower"
 $DriverPath  = "$WorkDir\oem-setup.inf"
 
-# Tự động tạo thư mục tạm
+# Tự động tạo thư mục tạm nếu chưa có
 if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Path $WorkDir | Out-Null }
-$exePath = "$WorkDir\driver.exe"
+$zipPath = "$WorkDir\driver.zip"
 
 if (!(Test-Path $DriverPath)) {
-    Write-Host "[1/4] Đang tải bộ Driver cấu hình từ Server Ricoh..." -ForegroundColor Green
+    Write-Host "[1/4] Đang kết nối mạng và tải bộ Driver Ricoh từ Google Drive..." -ForegroundColor Green
     try {
-        # Tải file .exe gốc về thư mục tạm
-        Invoke-WebRequest -Uri $DriverUrl -OutFile $exePath -ErrorAction Stop
+        # Cấu hình giao thức bảo mật đường truyền tải file
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         
-        Write-Host "[*] Đang tự động giải nén gói cài đặt Ricoh..." -ForegroundColor Yellow
-        # BƯỚC 2: Chạy file .exe ngầm với tham số ép tự xả nén vào thư mục đích
-        $process = Start-Process -FilePath $exePath -ArgumentList "/S /A `"$WorkDir`"" -Wait -NoNewWindow -PassThru
+        # Thực hiện tải file zip trực tiếp về máy
+        Invoke-WebRequest -Uri $DriverUrl -OutFile $zipPath -ErrorAction Stop
         
-        # Xóa file .exe sau khi giải nén xong cho sạch máy
-        if (Test-Path $exePath) { Remove-Item $exePath -Force }
+        Write-Host "[*] Đang giải nén gói driver máy in Ricoh..." -ForegroundColor Yellow
+        # Giải nén trực tiếp file ZIP bằng tập lệnh chuẩn của Windows
+        Expand-Archive -Path $zipPath -DestinationPath $WorkDir -Force
+        
+        # Xóa file nén tạm sau khi xả nén thành công
+        if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
     } catch {
         Write-Host ""
-        Write-Host "[LỖI CRITICAL] Không tải hoặc không trích xuất được gói driver .EXE!" -ForegroundColor Red
+        Write-Host "[LỖI CRITICAL] Không tải hoặc không trích xuất được gói driver!" -ForegroundColor Red
         Write-Host "[CHI TIẾT LỖI]: $_" -ForegroundColor Yellow
         Write-Host ""
         Read-Host "Bấm phím ENTER để đóng công cụ..."
         return
     }
 }
+
 
 
 
