@@ -81,7 +81,7 @@ Write-Host "---------------------------------------------------" -ForegroundColo
 $ModelLower  = $Model.ToLower()
 
 # BƯỚC 1: Dán thẳng đường link file .EXE tải từ trang Ricoh vào đây
-$DriverUrl   = "https://ricoh.com" 
+$DriverUrl   = "https://drive.google.com/file/d/188P92YOuFvCvA_Rll54-TVDXGG-HWr6S/view?usp=sharing" 
 $DriverName  = "RICOH PCL6 UniversalDriver V4.35"
 $WorkDir     = "C:\Temp\RicohInstall_$ModelLower"
 $DriverPath  = "$WorkDir\oem-setup.inf"
