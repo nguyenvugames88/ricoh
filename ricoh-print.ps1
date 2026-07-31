@@ -282,7 +282,14 @@ if (!$SkipInstall) {
         $Model = Read-Host "[?] Vui lòng tự nhập mã Model (Ví dụ: mp2554, imc3000)"
     }
 
-    $DefaultPrinterName = "Ricoh $($Model.ToUpper()) ($IP)"
+    # Chuẩn hóa tên model: "MP2555" -> "MP 2555" (thêm khoảng trắng giữa chữ và số)
+    $ModelDisplay = ($Model.ToUpper() -replace '([A-Za-z]+)(\d+)', '$1 $2')
+
+    # Nhập tên vị trí / ghi chú do người dùng đặt, VD: "May 1", "Phong Ke Toan"
+    $Label = Read-Host "[?] Nhập TÊN VỊ TRÍ / GHI CHÚ cho máy in (VD: May 1, Phong Ke Toan...) (Mặc định: '$IP')"
+    if ([string]::IsNullOrWhiteSpace($Label)) { $Label = $IP }
+
+    $DefaultPrinterName = "Ricoh $ModelDisplay ($Label)"
     $PrinterName = Read-Host "[?] Nhập TÊN MÁY IN TRÊN WINDOWS (Mặc định: '$DefaultPrinterName')"
     if ([string]::IsNullOrWhiteSpace($PrinterName)) { $PrinterName = $DefaultPrinterName }
 }
