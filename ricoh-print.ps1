@@ -266,6 +266,34 @@ if ($ExistingPrinter) {
         $DriverName = $ExistingPrinter.DriverName
         $SkipInstall = $true
         Write-Host "[+] Sẽ dùng lại máy in '$PrinterName', bỏ qua bước tải và cài đặt driver." -ForegroundColor Yellow
+
+        # Tự tách Model + ghi chú từ tên máy in hiện tại: "Ricoh MP 2555 (May 1)" -> Model: "Ricoh MP 2555", Ghi chú: "May 1"
+        $NamePattern = [regex]::Match($ExistingPrinter.Name, '^(.+?)\s*\(([^)]*)\)\s*$')
+        if ($NamePattern.Success) {
+            $ModelFromName = $NamePattern.Groups[1].Value.Trim()
+            $OldLabel = $NamePattern.Groups[2].Value.Trim()
+            $Label = Read-Host "[?] Nhập TÊN VỊ TRÍ / GHI CHÚ mới (Mặc định: '$OldLabel')"
+            if ([string]::IsNullOrWhiteSpace($Label)) { $Label = $OldLabel }
+            $NewPrinterName = "$ModelFromName ($Label)"
+        } else {
+            Write-Host "[!] Tên máy in '$($ExistingPrinter.Name)' không đúng dạng 'Ricoh MP 2555 (Ghi chú)'. Nhập lại tên đầy đủ:" -ForegroundColor Yellow
+            $NewPrinterName = Read-Host "[?] Nhập TÊN MÁY IN mới (Mặc định: '$($ExistingPrinter.Name)')"
+            if ([string]::IsNullOrWhiteSpace($NewPrinterName)) { $NewPrinterName = $ExistingPrinter.Name }
+        }
+
+        # Đổi tên máy in nếu người dùng nhập ghi chú khác (tạo tên mới trước, xóa tên cũ sau - an toàn)
+        if ($NewPrinterName -ne $PrinterName) {
+            try {
+                Add-Printer -Name $NewPrinterName -DriverName $DriverName -PortName $PortName
+                Remove-Printer -Name $PrinterName
+                Write-Host "[+] Đã đổi tên máy in thành: $NewPrinterName" -ForegroundColor Green
+                $PrinterName = $NewPrinterName
+            } catch {
+                Write-Host "[!] Không đổi được tên máy in: $_ - giữ tên cũ." -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "[+] Giữ nguyên tên máy in: $PrinterName" -ForegroundColor Green
+        }
     }
 }
 
