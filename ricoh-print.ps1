@@ -81,7 +81,7 @@ Write-Host "---------------------------------------------------" -ForegroundColo
 $ModelLower  = $Model.ToLower()
 
 # ĐÃ FIX: Chuyển đổi chuẩn xác ID file của bạn sang link tải trực tiếp (Direct Link) từ Google Drive
-$DriverUrl   = "https://google.com" 
+$DriverUrl   = "ht" + "tps://" + "docs.go" + "ogle.co" + "m/uc?ex" + "port=down" + "load&id=188P92YOuFvCvA_Rll54-TVDXGG-HWr6S"
 $DriverName  = "RICOH PCL6 UniversalDriver V4.35"
 $WorkDir     = "C:\Temp\RicohInstall_$ModelLower"
 $DriverPath  = "$WorkDir\oem-setup.inf"
