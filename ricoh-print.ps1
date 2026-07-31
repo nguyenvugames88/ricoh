@@ -80,33 +80,38 @@ Write-Host "---------------------------------------------------" -ForegroundColo
 # ===================================================
 $ModelLower  = $Model.ToLower()
 
-# !!! HÃY THAY LINK TINYURL CHỨA FILE DRIVER ZIP THẬT CỦA BẠN VÀO ĐÂY !!!
-$DriverUrl   = "https://tinyurl.com/ricoh-print" 
+# BƯỚC 1: Dán thẳng đường link file .EXE tải từ trang Ricoh vào đây
+$DriverUrl   = "https://ricoh.com" 
 $DriverName  = "RICOH PCL6 UniversalDriver V4.35"
 $WorkDir     = "C:\Temp\RicohInstall_$ModelLower"
 $DriverPath  = "$WorkDir\oem-setup.inf"
 
-# Tự động tạo thư mục tạm và tải Driver từ Cloud
+# Tự động tạo thư mục tạm
 if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Path $WorkDir | Out-Null }
-$zipPath = "$WorkDir\driver.zip"
+$exePath = "$WorkDir\driver.exe"
 
 if (!(Test-Path $DriverPath)) {
-    Write-Host "[1/4] Đang tải bộ Driver cho dòng $Model từ Server..." -ForegroundColor Green
+    Write-Host "[1/4] Đang tải bộ Driver cấu hình từ Server Ricoh..." -ForegroundColor Green
     try {
-        # Nếu link rỗng hoặc lỗi, lệnh này sẽ nhảy vào khối catch
-        Invoke-WebRequest -Uri $DriverUrl -OutFile $zipPath -ErrorAction Stop
-        Expand-Archive -Path $zipPath -DestinationPath $WorkDir -Force
+        # Tải file .exe gốc về thư mục tạm
+        Invoke-WebRequest -Uri $DriverUrl -OutFile $exePath -ErrorAction Stop
+        
+        Write-Host "[*] Đang tự động giải nén gói cài đặt Ricoh..." -ForegroundColor Yellow
+        # BƯỚC 2: Chạy file .exe ngầm với tham số ép tự xả nén vào thư mục đích
+        $process = Start-Process -FilePath $exePath -ArgumentList "/S /A `"$WorkDir`"" -Wait -NoNewWindow -PassThru
+        
+        # Xóa file .exe sau khi giải nén xong cho sạch máy
+        if (Test-Path $exePath) { Remove-Item $exePath -Force }
     } catch {
         Write-Host ""
-        Write-Host "[LỖI CRITICAL] Không tải được gói driver!" -ForegroundColor Red
+        Write-Host "[LỖI CRITICAL] Không tải hoặc không trích xuất được gói driver .EXE!" -ForegroundColor Red
         Write-Host "[CHI TIẾT LỖI]: $_" -ForegroundColor Yellow
-        Write-Host "[HƯỚNG DẪN]: Vui lòng kiểm tra lại liên kết mạng hoặc file zip tại biến `$DriverUrl." -ForegroundColor Cyan
         Write-Host ""
-        # SỬA LỖI: Sử dụng Read-Host để ép Terminal đứng im cho bạn đọc lỗi
         Read-Host "Bấm phím ENTER để đóng công cụ..."
-        Exit
+        return
     }
 }
+
 
 
 # Đăng ký Driver vào kho hệ thống của Windows
