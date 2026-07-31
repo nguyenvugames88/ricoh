@@ -80,7 +80,7 @@ Write-Host "---------------------------------------------------" -ForegroundColo
 # ===================================================
 $ModelLower  = $Model.ToLower()
 # Thay liên kết TinyURL chứa file Driver zip trực tiếp từ GitHub của bạn vào đây
-$DriverUrl   = "https://tinyurl.com" 
+$DriverUrl   = "https://tinyurl.com/ricoh-print" 
 $DriverName  = "RICOH PCL6 UniversalDriver V4.35"
 $WorkDir     = "C:\Temp\RicohInstall_$ModelLower"
 $DriverPath  = "$WorkDir\oem-setup.inf"
