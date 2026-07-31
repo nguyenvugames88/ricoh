@@ -167,6 +167,9 @@ public static class RicohPrinterDefaultsCSharp
     public const short A4_LENGTH_TENTH_MM = 2970;
     public const short A4_WIDTH_TENTH_MM = 2100;
 
+    // Offset của pDevMode trong PRINTER_INFO_2 (x64: 56, x86: 28)
+    public static readonly int DEVMODE_PTR_OFFSET = (IntPtr.Size == 8) ? 56 : 28;
+
     [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool OpenPrinter(string pPrinterName, out IntPtr phPrinter, ref PRINTER_DEFAULTS pDefault);
 
@@ -175,6 +178,12 @@ public static class RicohPrinterDefaultsCSharp
 
     [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern int DocumentProperties(IntPtr hWnd, IntPtr hPrinter, string pDeviceName, IntPtr pDevModeOutput, IntPtr pDevModeInput, uint fMode);
+
+    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool GetPrinter(IntPtr hPrinter, int Level, IntPtr pPrinter, int Size, out int pcbNeeded);
+
+    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SetPrinter(IntPtr hPrinter, int Level, IntPtr pPrinter, int Command);
 
     public static int ApplyA4Simplex(string printerName)
     {
@@ -187,35 +196,63 @@ public static class RicohPrinterDefaultsCSharp
 
         try
         {
-            int size = DocumentProperties(IntPtr.Zero, hPrinter, printerName, IntPtr.Zero, IntPtr.Zero, 0);
-            if (size <= 0) return -2;
+            int needed = 0;
+            // Lần gọi đầu trả FALSE + error 122 (ERROR_BUFFER_OVERFLOW) nhưng vẫn lấp đầy needed - hành vi chuẩn để lấy kích thước
+            GetPrinter(hPrinter, 2, IntPtr.Zero, 0, out needed);
+            if (needed <= 0) return -2;
 
-            IntPtr pIn = Marshal.AllocHGlobal(size);
-            IntPtr pOut = Marshal.AllocHGlobal(size);
+            IntPtr pInfo = Marshal.AllocHGlobal(needed);
             try
             {
-                if (DocumentProperties(IntPtr.Zero, hPrinter, printerName, pIn, IntPtr.Zero, DM_OUT_BUFFER) < 0)
-                    return -3;
+                if (!GetPrinter(hPrinter, 2, pInfo, needed, out needed))
+                    return -4;
 
-                int fields = Marshal.ReadInt32(pIn, 72) | DM_PAPERSIZE | DM_PAPERLENGTH | DM_PAPERWIDTH | DM_DUPLEX;
-                Marshal.WriteInt32(pIn, 72, fields);
-                Marshal.WriteInt16(pIn, 78, DMPAPER_A4);
-                Marshal.WriteInt16(pIn, 80, A4_LENGTH_TENTH_MM);
-                Marshal.WriteInt16(pIn, 82, A4_WIDTH_TENTH_MM);
-                Marshal.WriteInt16(pIn, 94, DMDUP_SIMPLEX);
+                int size = DocumentProperties(IntPtr.Zero, hPrinter, printerName, IntPtr.Zero, IntPtr.Zero, 0);
+                if (size <= 0) return -5;
 
-                int r = DocumentProperties(IntPtr.Zero, hPrinter, printerName, pOut, pIn, DM_IN_BUFFER | DM_OUT_BUFFER | DM_MODIFY);
-                if (r < 0) return -4;
+                IntPtr pDev = Marshal.AllocHGlobal(size);
+                try
+                {
+                    if (DocumentProperties(IntPtr.Zero, hPrinter, printerName, pDev, IntPtr.Zero, DM_OUT_BUFFER) <= 0)
+                        return -6;
 
-                int paper = Marshal.ReadInt16(pOut, 78);
-                int duplex = Marshal.ReadInt16(pOut, 94);
-                if (paper != DMPAPER_A4 || duplex != DMDUP_SIMPLEX)
-                    return -5;
+                    // DEVMODE Unicode: dmFields@72, dmPaperSize@78, dmPaperLength@80, dmPaperWidth@82, dmDuplex@94
+                    int fields = Marshal.ReadInt32(pDev, 72) | DM_PAPERSIZE | DM_PAPERLENGTH | DM_PAPERWIDTH | DM_DUPLEX;
+                    Marshal.WriteInt32(pDev, 72, fields);
+                    Marshal.WriteInt16(pDev, 78, DMPAPER_A4);
+                    Marshal.WriteInt16(pDev, 80, A4_LENGTH_TENTH_MM);
+                    Marshal.WriteInt16(pDev, 82, A4_WIDTH_TENTH_MM);
+                    Marshal.WriteInt16(pDev, 94, DMDUP_SIMPLEX);
+
+                    Marshal.WriteIntPtr(pInfo, DEVMODE_PTR_OFFSET, pDev);
+
+                    if (!SetPrinter(hPrinter, 2, pInfo, 0))
+                        return -7;
+
+                    // Xác minh: đọc lại DEVMODE từ spooler sau khi lưu
+                    IntPtr p2 = Marshal.AllocHGlobal(size);
+                    try
+                    {
+                        if (DocumentProperties(IntPtr.Zero, hPrinter, printerName, p2, IntPtr.Zero, DM_OUT_BUFFER) <= 0)
+                            return -8;
+                        int paper = Marshal.ReadInt16(p2, 78);
+                        int duplex = Marshal.ReadInt16(p2, 94);
+                        if (paper != DMPAPER_A4 || duplex != DMDUP_SIMPLEX)
+                            return -9;
+                    }
+                    finally
+                    {
+                        Marshal.FreeHGlobal(p2);
+                    }
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(pDev);
+                }
             }
             finally
             {
-                Marshal.FreeHGlobal(pIn);
-                Marshal.FreeHGlobal(pOut);
+                Marshal.FreeHGlobal(pInfo);
             }
         }
         finally
@@ -469,6 +506,10 @@ Set-ItemProperty -Path $RegPath -Name "JobOwnerName" -Value $UserName -ErrorActi
 if (![string]::IsNullOrWhiteSpace($UserCode)) {
     Set-ItemProperty -Path $RegPath -Name "UserCode" -Value $UserCode -ErrorAction SilentlyContinue
     Set-ItemProperty -Path $RegPath -Name "AuthMode" -Value 1 -ErrorAction SilentlyContinue
+    Write-Host "[+] Đã ghi User Code '$UserCode' vào registry ($RegPath)" -ForegroundColor Green
+    Write-Host "[!] LƯU Ý: Driver Ricoh lưu cấu hình User Code trong kho dữ liệu MÃ HÓA riêng (HKCU\Software\RICOH\JOBCODEv2)." -ForegroundColor Yellow
+    Write-Host "[!] Nếu máy in vẫn đòi nhập User Code khi in, hãy đặt 1 lần bằng tay:" -ForegroundColor Yellow
+    Write-Host "[!]   Settings -> Printers & scanners -> '$PrinterName' -> Printing preferences -> Job Setup -> User Code -> nhập '$UserCode' -> OK" -ForegroundColor Yellow
 } else {
     Set-ItemProperty -Path $RegPath -Name "UserCode" -Value "" -ErrorAction SilentlyContinue
     Set-ItemProperty -Path $RegPath -Name "AuthMode" -Value 0 -ErrorAction SilentlyContinue
