@@ -253,12 +253,27 @@ $PrinterName = ""
 $DriverName = ""
 $PortName = "IP_$IP"
 
-$ExistingPrinter = Get-Printer -ErrorAction SilentlyContinue | Where-Object { $_.PortName -eq $PortName } | Select-Object -First 1
+$ExistingPrinters = @(Get-Printer -ErrorAction SilentlyContinue | Where-Object { $_.PortName -eq $PortName })
+$ExistingPrinter = $null
 
-if ($ExistingPrinter) {
+if ($ExistingPrinters.Count -gt 0) {
     Write-Host "[+] Phát hiện máy in ĐÃ CÀI SẴN cho IP ${IP}:" -ForegroundColor Green
-    Write-Host "    - Tên máy in : $($ExistingPrinter.Name)"
-    Write-Host "    - Driver      : $($ExistingPrinter.DriverName)"
+    if ($ExistingPrinters.Count -gt 1) {
+        Write-Host "    Có $($ExistingPrinters.Count) máy in trên port này, chọn máy cần dùng:" -ForegroundColor Yellow
+        for ($i = 0; $i -lt $ExistingPrinters.Count; $i++) {
+            Write-Host "    [$($i + 1)] $($ExistingPrinters[$i].Name)  (Driver: $($ExistingPrinters[$i].DriverName))"
+        }
+        $Choice = Read-Host "[?] Chọn số (Mặc định: 1)"
+        if ([string]::IsNullOrWhiteSpace($Choice)) { $Choice = "1" }
+        $Idx = 0
+        if ($Choice -match '^\d+$') { $Idx = [Math]::Min([int]$Choice - 1, $ExistingPrinters.Count - 1) }
+        $ExistingPrinter = $ExistingPrinters[$Idx]
+    } else {
+        $ExistingPrinter = $ExistingPrinters[0]
+        Write-Host "    - Tên máy in : $($ExistingPrinter.Name)"
+        Write-Host "    - Driver      : $($ExistingPrinter.DriverName)"
+    }
+
     $Reuse = Read-Host "[?] Dùng LẠI máy in này (chỉ cập nhật cấu hình A4/User Code)? (Y/n, mặc định Y)"
     if ([string]::IsNullOrWhiteSpace($Reuse)) { $Reuse = "Y" }
     if ($Reuse -match '^[Yy]') {
@@ -267,18 +282,34 @@ if ($ExistingPrinter) {
         $SkipInstall = $true
         Write-Host "[+] Sẽ dùng lại máy in '$PrinterName', bỏ qua bước tải và cài đặt driver." -ForegroundColor Yellow
 
-        # Tự tách Model + ghi chú từ tên máy in hiện tại: "Ricoh MP 2555 (May 1)" -> Model: "Ricoh MP 2555", Ghi chú: "May 1"
-        $NamePattern = [regex]::Match($ExistingPrinter.Name, '^(.+?)\s*\(([^)]*)\)\s*$')
-        if ($NamePattern.Success) {
-            $ModelFromName = $NamePattern.Groups[1].Value.Trim()
-            $OldLabel = $NamePattern.Groups[2].Value.Trim()
-            $Label = Read-Host "[?] Nhập TÊN VỊ TRÍ / GHI CHÚ mới (Mặc định: '$OldLabel')"
-            if ([string]::IsNullOrWhiteSpace($Label)) { $Label = $OldLabel }
-            $NewPrinterName = "$ModelFromName ($Label)"
+        # Lấy mã model TỪ TÊN máy in cũ: "Ricoh MP 2554 (May 1)" -> "MP 2554"
+        $ModelFromName = ""
+        if ($ExistingPrinter.Name -match '(?i)(MP\s*\d+|IMC\s*\d+|SP\s*\d+|Aficio\s*MP\s*\d+)') {
+            $ModelFromName = ($Matches[0] -replace '\s+', ' ').Trim()
+        }
+
+        # Nếu tên máy in KHÔNG có mã model -> quét model từ IP thiết bị
+        if (!$ModelFromName) {
+            Write-Host "[*] Tên máy in không chứa mã model - đang quét mã model từ IP $IP..." -ForegroundColor Yellow
+            $ModelFromName = Get-RicohModelFromIP -IP $IP
+            if ($ModelFromName) {
+                Write-Host "[+] Quét được model từ IP: $ModelFromName" -ForegroundColor Green
+            }
+        }
+
+        # Tách ghi chú cũ (phần trong ngoặc cuối cùng)
+        $OldLabel = ""
+        if ($ExistingPrinter.Name -match '\(([^)]*)\)\s*$') { $OldLabel = $Matches[1] }
+        $Label = Read-Host "[?] Nhập TÊN VỊ TRÍ / GHI CHÚ mới (Mặc định: '$OldLabel')"
+        if ([string]::IsNullOrWhiteSpace($Label)) { $Label = $OldLabel }
+
+        if ($ModelFromName) {
+            $NewPrinterName = "Ricoh $ModelFromName ($Label)"
         } else {
-            Write-Host "[!] Tên máy in '$($ExistingPrinter.Name)' không đúng dạng 'Ricoh MP 2555 (Ghi chú)'. Nhập lại tên đầy đủ:" -ForegroundColor Yellow
-            $NewPrinterName = Read-Host "[?] Nhập TÊN MÁY IN mới (Mặc định: '$($ExistingPrinter.Name)')"
-            if ([string]::IsNullOrWhiteSpace($NewPrinterName)) { $NewPrinterName = $ExistingPrinter.Name }
+            Write-Host "[!] Không lấy được mã model từ tên máy in cũ và từ IP - giữ nguyên phần tên gốc." -ForegroundColor Yellow
+            $BaseName = $ExistingPrinter.Name
+            if ($BaseName -match '^(.+?)\s*\([^)]*\)\s*$') { $BaseName = $Matches[1].Trim() }
+            $NewPrinterName = "$BaseName ($Label)"
         }
 
         # Đổi tên máy in nếu người dùng nhập ghi chú khác (tạo tên mới trước, xóa tên cũ sau - an toàn)
