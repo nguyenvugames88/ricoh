@@ -8,21 +8,23 @@ function Get-RicohModelFromIP {
         $url = "http://$IP:8080/web/guest/en/websys/webArch/topPage.cgi"
         $response = Invoke-WebRequest -Uri $url -TimeoutSec 3 -ErrorAction Stop
         
-        # Chuyển đổi nội dung HTML về dạng chuỗi thuần túy để quét Regex
+        # Chuyển đổi nội dung HTML về dạng chuỗi thuần túy
         $htmlText = [string]$response.Content
+        
+        # [DEBUG] In thử nội dung quét được để bạn kiểm tra xem IP đã giả lập thành công chưa
+        Write-Host "[DEBUG] HTML nhan duoc: $htmlText" -ForegroundColor DarkGray
         
         # Biểu thức Regex quét mã máy in Ricoh
         if ($htmlText -match '(MP\s*\d+|IMC\d+|SP\s*\d+|Aficio\s*MP\s*\d+)') {
-            # Lấy chính xác phần tử đầu tiên tìm thấy [0] và xóa khoảng trắng
+            # SỬA LỖI: Bắt buộc phải là $matches[0] để lấy chuỗi tìm thấy
             $model = $matches[0] -replace '\s+', ''
             return $model
         }
     } catch {
-        # Dự phòng quét qua SNMP nếu lỗi Web
+        Write-Host "[DEBUG] Loi ket noi toi IP: $_" -ForegroundColor DarkGray
     }
     return $null
 }
-
 
 # ===================================================
 # CHƯƠNG TRÌNH CHÍNH (INTERACTIVE MENU)
@@ -50,6 +52,10 @@ if ($DetectedModel) {
     Write-Host "[!] Không tự động quét được Model." -ForegroundColor Red
     $Model = Read-Host "[?] Vui lòng tự nhập mã Model (Ví dụ: mp2554, mp3054)"
 }
+
+# Các bước cài đặt phía sau giữ nguyên...
+Write-Host "[*] Model duoc chon de tiep tuc setup: $Model" -ForegroundColor Cyan
+
 
 # 3. Yêu cầu nhập Tên hiển thị trên máy in
 $DefaultUser = $env:USERNAME
