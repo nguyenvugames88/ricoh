@@ -93,13 +93,21 @@ $zipPath = "$WorkDir\driver.zip"
 if (!(Test-Path $DriverPath)) {
     Write-Host "[1/4] Đang tải bộ Driver cho dòng $Model từ Server..." -ForegroundColor Green
     try {
+        # Nếu link rỗng hoặc lỗi, lệnh này sẽ nhảy vào khối catch
         Invoke-WebRequest -Uri $DriverUrl -OutFile $zipPath -ErrorAction Stop
         Expand-Archive -Path $zipPath -DestinationPath $WorkDir -Force
     } catch {
-        Write-Host "[LỖI CRITICAL] Không tải được gói driver! Vui lòng kiểm tra lại liên kết mạng hoặc file zip." -ForegroundColor Red
+        Write-Host ""
+        Write-Host "[LỖI CRITICAL] Không tải được gói driver!" -ForegroundColor Red
+        Write-Host "[CHI TIẾT LỖI]: $_" -ForegroundColor Yellow
+        Write-Host "[HƯỚNG DẪN]: Vui lòng kiểm tra lại liên kết mạng hoặc file zip tại biến `$DriverUrl." -ForegroundColor Cyan
+        Write-Host ""
+        # SỬA LỖI: Sử dụng Read-Host để ép Terminal đứng im cho bạn đọc lỗi
+        Read-Host "Bấm phím ENTER để đóng công cụ..."
         Exit
     }
 }
+
 
 # Đăng ký Driver vào kho hệ thống của Windows
 Write-Host "[2/4] Đang nạp Driver & Khởi tạo cổng IP mạng..." -ForegroundColor Green
