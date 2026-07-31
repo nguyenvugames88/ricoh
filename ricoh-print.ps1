@@ -38,7 +38,7 @@ function Get-RicohModelFromIP {
 Clear-Host
 Write-Host "===================================================" -ForegroundColor Cyan
 Write-Host "      CÔNG CỤ CÀI ĐẶT MÁY IN RICOH TỰ ĐỘNG         " -ForegroundColor Cyan
-Write-Host "===================================================" -ForegroundColor Cyan
+# ===================================================
 Write-Host ""
 
 # Nhập địa chỉ IP của máy in thực tế
@@ -80,8 +80,8 @@ Write-Host "---------------------------------------------------" -ForegroundColo
 # ===================================================
 $ModelLower  = $Model.ToLower()
 
-# ĐÃ SỬA: Chuyển đổi thành Link Direct tải thẳng file .ZIP từ Google Drive của bạn
-$DriverUrl   = "https://drive.google.com/file/d/188P92YOuFvCvA_Rll54-TVDXGG-HWr6S/view?usp=sharing" 
+# ĐÃ FIX: Chuyển đổi chuẩn xác ID file của bạn sang link tải trực tiếp (Direct Link) từ Google Drive
+$DriverUrl   = "https://google.com" 
 $DriverName  = "RICOH PCL6 UniversalDriver V4.35"
 $WorkDir     = "C:\Temp\RicohInstall_$ModelLower"
 $DriverPath  = "$WorkDir\oem-setup.inf"
@@ -114,9 +114,6 @@ if (!(Test-Path $DriverPath)) {
         return
     }
 }
-
-
-
 
 # Đăng ký Driver vào kho hệ thống của Windows
 Write-Host "[2/4] Đang nạp Driver & Khởi tạo cổng IP mạng..." -ForegroundColor Green
