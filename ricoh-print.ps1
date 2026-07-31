@@ -4,21 +4,25 @@
 function Get-RicohModelFromIP {
     param ([string]$IP)
     try {
-        # Đã đổi sang cổng 8080 để test với Server giả lập Localhost.
-        # Khi mang ra máy in thật ngoài văn phòng, bạn hãy xóa ":8080" đi nhé.
+        # Kết nối tới Server giả lập qua cổng 8080
         $url = "http://$IP:8080/web/guest/en/websys/webArch/topPage.cgi"
         $response = Invoke-WebRequest -Uri $url -TimeoutSec 3 -ErrorAction Stop
         
-        # Tìm chuỗi tên model trong HTML (Ví dụ: MP 2554, MP 3054, C3000...)
-        if ($response.Content -match '(MP\s*\d+|IMC\d+|SP\s*\d+|Aficio\s*MP\s*\d+)') {
-            $model = $matches[0] -replace '\s+', '' # Xóa khoảng trắng (VD: MP2554)
+        # Chuyển đổi nội dung HTML về dạng chuỗi thuần túy để quét Regex
+        $htmlText = [string]$response.Content
+        
+        # Biểu thức Regex quét mã máy in Ricoh
+        if ($htmlText -match '(MP\s*\d+|IMC\d+|SP\s*\d+|Aficio\s*MP\s*\d+)') {
+            # Lấy chính xác phần tử đầu tiên tìm thấy [0] và xóa khoảng trắng
+            $model = $matches[0] -replace '\s+', ''
             return $model
         }
     } catch {
-        # Nếu không quét được qua Web (do bật tường lửa), thử qua SNMP đơn giản
+        # Dự phòng quét qua SNMP nếu lỗi Web
     }
     return $null
 }
+
 
 # ===================================================
 # CHƯƠNG TRÌNH CHÍNH (INTERACTIVE MENU)
